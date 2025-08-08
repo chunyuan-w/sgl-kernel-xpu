@@ -125,6 +125,10 @@ void gemma_fused_add_rmsnorm(at::Tensor& input, at::Tensor& residual, at::Tensor
 void silu_and_mul(at::Tensor& out, at::Tensor& input);
 void gelu_tanh_and_mul(at::Tensor& out, at::Tensor& input);
 void gelu_and_mul(at::Tensor& out, at::Tensor& input);
+std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> topk_softmax(
+    const at::Tensor& gating_output,
+    const int64_t n_topk,
+    const bool renormalize);
 void apply_rope_pos_ids_cos_sin_cache(
     at::Tensor q,
     at::Tensor k,
