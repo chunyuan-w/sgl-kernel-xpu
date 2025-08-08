@@ -59,7 +59,7 @@ def ref_topk_softmax(gating_logits, n_topk):
 # @pytest.mark.parametrize("n_topk", [1, 2, 4, 8])
 @pytest.mark.parametrize("renormalize", [False])
 # @pytest.mark.parametrize("renormalize", [False, True])
-def test_topk_softmax(self, dtype, n_token, n_topk, n_expert, renormalize):
+def test_topk_softmax(dtype, n_token, n_topk, n_expert, renormalize):
     gating_logits = torch.randn(n_token, n_expert, device=device, dtype=dtype)
     
     ref_token_weights, ref_topk_indices, ref_token_for_experts = (
