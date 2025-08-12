@@ -34,9 +34,9 @@ TORCH_LIBRARY_FRAGMENT(sgl_kernel, m) {
   m.def("gelu_and_mul(Tensor! out, Tensor input) -> ()");
   m.impl("gelu_and_mul", torch::kXPU, &gelu_and_mul);
 
-  m.def("topk_softmax(Tensor gating_output, int n_topk, bool renormalize) -> (Tensor topk_weights, Tensor topk_indices, Tensor rows_for_experts, Tensor offsets)");
+  m.def("topk_softmax(Tensor! topk_weights, Tensor! topk_indices, Tensor gating_output, bool renormalize) -> ()");
   m.impl("topk_softmax", torch::kXPU, static_cast<
-      std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> (*)(const at::Tensor&, int64_t, bool)
+      void (*)(at::Tensor&, at::Tensor&, at::Tensor&, bool)
   >(&topk_softmax));
 
   //   m.def(

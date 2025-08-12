@@ -1,6 +1,7 @@
 import pytest
 import sgl_kernel
 import torch
+import torch.nn.functional as F
 
 if torch.cuda.is_available():
     device = torch.device("cuda")
@@ -60,22 +61,43 @@ def ref_topk_softmax(gating_logits, n_topk):
 @pytest.mark.parametrize("renormalize", [False])
 # @pytest.mark.parametrize("renormalize", [False, True])
 def test_topk_softmax(dtype, n_token, n_topk, n_expert, renormalize):
-    gating_logits = torch.randn(n_token, n_expert, device=device, dtype=dtype)
+    # gating_logits = torch.randn(n_token, n_expert, device=device, dtype=dtype)
     
-    ref_token_weights, ref_topk_indices, ref_token_for_experts = (
-        ref_topk_softmax(gating_logits, n_topk)
+    # expand gating_output by M, otherwise bfloat16 fall into same value aftering truncating
+    hidden_states = torch.randn(n_token, 100, device=device, dtype=dtype)
+    gating_output = torch.randn(n_token, n_expert, device=device, dtype=dtype) * 2 * n_token
+    
+    ref_token_weights, ref_topk_indices = fused_topk_torch_native(
+        hidden_states.float(),
+        gating_output.float(),
+        n_topk,
+        renormalize,
+    )    
+    
+    # TODO: check whether renormalize = True is supported in the kernel
+    
+    assert hidden_states.shape[0] == gating_output.shape[0], "Number of tokens mismatch"
+
+    M, _ = hidden_states.shape
+
+    topk_weights = torch.empty(
+        M, n_topk, dtype=torch.float32, device=hidden_states.device
     )
-    # TODO: currently the schema followed the one in ipex xpu. Align the schema with cuda schema in sglang.
-    topk_weights, topk_indices, token_for_experts, _ = (
-        sgl_kernel.topk_softmax(gating_logits, n_topk, False)
-    )
+    topk_indices = torch.empty(M, n_topk, dtype=torch.int32, device=hidden_states.device)
+    
+    sgl_kernel.topk_softmax(
+        topk_weights,
+        topk_indices,
+        gating_output,
+        renormalize,
+    )    
     
     # Compare the results
     torch.testing.assert_close(
         ref_token_weights, topk_weights, atol=1e-2, rtol=1e-2
     )
     assert torch.equal(ref_topk_indices, topk_indices)
-    assert torch.equal(ref_token_for_experts, token_for_experts)
+    # assert torch.equal(ref_token_for_experts, token_for_experts)
 
 
 if __name__ == "__main__":

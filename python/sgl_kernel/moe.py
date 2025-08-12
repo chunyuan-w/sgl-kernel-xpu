@@ -25,25 +25,14 @@ def moe_align_block_size(
     )
 
 
-# def topk_softmax(
-#     topk_weights: torch.Tensor,
-#     topk_ids: torch.Tensor,
-#     token_expert_indices: torch.Tensor,
-#     gating_output: float,
-# ) -> None:
-#     torch.ops.sgl_kernel.topk_softmax.default(
-#         topk_weights, topk_ids, token_expert_indices, gating_output
-#     )
-
-
-# TODO: currently the schema followed the one in ipex xpu. Align the schema with cuda schema in sglang.
 def topk_softmax(
-    gating_output: torch.Tensor,
-    n_topk: int,
-    renormalize: bool,
-) -> Tuple[torch.Tensor]:
-    return torch.ops.sgl_kernel.topk_softmax.default(
-        gating_output, n_topk, renormalize
+    topk_weights: torch.Tensor,
+    topk_ids: torch.Tensor,
+    gating_output: float,
+    renormalize: bool = False,
+) -> None:
+    torch.ops.sgl_kernel.topk_softmax.default(
+        topk_weights, topk_ids, gating_output, renormalize
     )
 
 

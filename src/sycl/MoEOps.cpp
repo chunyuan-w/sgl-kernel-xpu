@@ -228,8 +228,6 @@ void launch_fused_topk_softmax(
     const int num_tokens,
     const int num_experts) {
 
-  printf("my test kernel\n");
-
   using Kernel = FusedTopkSoftmax<T>;
   auto range = Kernel::get_nd_range(num_tokens, num_experts);
 
@@ -297,15 +295,17 @@ void fused_topk_softmax(
 
 /**
  * @brief Perform topk after softmax on gating_output.
+ * @param topk_weights The topk_weights tensor of shape [n_tokens, n_topk].
+ * @param topk_indices The topk_indices tensor of shape [n_tokens, n_topk].
  * @param gating_output The gating output tensor of shape [n_tokens, n_experts].
- * @param n_topk The number of top experts to select.
- * @return A tuple of tensors (topk_weights, topk_indices, rows_for_experts,
- * offsets).
+ * @param renormalize The renormalize bool whether the topk_weights needs to be renormalized.
+ * @return void.
  */
-std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> topk_softmax(
-    const at::Tensor& gating_output,
-    const int64_t n_topk,
-    const bool renormalize) {
+void topk_softmax(
+    at::Tensor& topk_weights,
+    at::Tensor& topk_indices,
+    at::Tensor& gating_output,
+    bool renormalize) {
   auto shape = gating_output.sizes().vec();
   TORCH_CHECK(
       shape.size() == 2,
@@ -321,10 +321,12 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> topk_softmax(
       n_experts);
 
   int n_experts_aligned = (n_experts + 7) / 8 * 8; // align to 8
-  auto topk_weights =
-      at::empty({n_tokens, n_topk}, at::dtype(at::kFloat).device(at::kXPU));
-  auto topk_indices =
-      at::empty({n_tokens, n_topk}, at::dtype(at::kInt).device(at::kXPU));
+
+  // TODO: do we still need to compute rows_for_experts and offsets in the kernel?
+  int64_t n_topk = topk_weights.size(1);
+
+  // TODO: check the shape of input tensors are correct
+
   auto rows_for_experts =
       at::zeros({n_experts_aligned}, at::dtype(at::kInt).device(at::kXPU));
   auto offsets =
@@ -346,6 +348,4 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> topk_softmax(
             n_experts,
             n_topk);
       });
-
-  return std::make_tuple(topk_weights, topk_indices, rows_for_experts, offsets);
 }
