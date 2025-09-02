@@ -50,17 +50,14 @@ def ref_topk_softmax(gating_logits, n_topk):
 
     
 # TODO: test more cases
-@pytest.mark.parametrize("dtype", [torch.bfloat16])
-# @pytest.mark.parametrize("dtype", [torch.float16, torch.bfloat16])
-@pytest.mark.parametrize("n_token", [2])
-# @pytest.mark.parametrize("n_token", [2, 32, 4096])
-@pytest.mark.parametrize("n_expert", [8])
-# @pytest.mark.parametrize("n_expert", [8, 32])
-@pytest.mark.parametrize("n_topk", [2])
-# @pytest.mark.parametrize("n_topk", [1, 2, 4, 8])
-@pytest.mark.parametrize("renormalize", [False])
-# @pytest.mark.parametrize("renormalize", [False, True])
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float16])
+@pytest.mark.parametrize("n_token", [2, 32, 4096])
+@pytest.mark.parametrize("n_expert", [8, 32])
+@pytest.mark.parametrize("n_topk", [1, 2, 4])
+@pytest.mark.parametrize("renormalize", [False, True])
 def test_topk_softmax(dtype, n_token, n_topk, n_expert, renormalize):
+    torch.manual_seed(1024)
+    
     # gating_logits = torch.randn(n_token, n_expert, device=device, dtype=dtype)
     
     # expand gating_output by M, otherwise bfloat16 fall into same value aftering truncating
@@ -73,8 +70,6 @@ def test_topk_softmax(dtype, n_token, n_topk, n_expert, renormalize):
         n_topk,
         renormalize,
     )    
-    
-    # TODO: check whether renormalize = True is supported in the kernel
     
     assert hidden_states.shape[0] == gating_output.shape[0], "Number of tokens mismatch"
 
@@ -93,11 +88,11 @@ def test_topk_softmax(dtype, n_token, n_topk, n_expert, renormalize):
     )    
     
     # Compare the results
-    torch.testing.assert_close(
-        ref_token_weights, topk_weights, atol=1e-2, rtol=1e-2
-    )
-    assert torch.equal(ref_topk_indices, topk_indices)
-    # assert torch.equal(ref_token_for_experts, token_for_experts)
+    res = torch.zeros(n_token, n_expert, dtype=torch.float, device=hidden_states.device)
+    ref = torch.zeros(n_token, n_expert, dtype=torch.float, device=hidden_states.device)
+    res.scatter_(1, topk_indices.long(), topk_weights)
+    ref.scatter_(1, ref_topk_indices.long(), ref_token_weights)
+    torch.testing.assert_close(res, ref, atol=3e-3, rtol=1e-3)
 
 
 if __name__ == "__main__":
