@@ -10,7 +10,6 @@ elif torch.xpu.is_available():
 else:
     device = torch.device("cpu")
 
-# TODO: use this as ref function
 def fused_topk_torch_native(
     hidden_states: torch.Tensor,
     gating_output: torch.Tensor,
@@ -31,25 +30,7 @@ def fused_topk_torch_native(
         topk_weights = topk_weights / topk_weights.sum(dim=-1, keepdim=True)
     return topk_weights, topk_ids
 
-
-def ref_topk_softmax(gating_logits, n_topk):
-    gating_logits = gating_logits.to(torch.float)
-    softmax = torch.nn.functional.softmax(gating_logits, dim=-1, dtype=torch.float)
-    topk_weights, topk_indices = torch.topk(softmax, n_topk, dim=-1)
-
-    # token_for_expert: # of tokens for each expert
-    # token_offset: the offset of each token for each export
-    n_experts = gating_logits.shape[-1]
-    token_for_experts = torch.zeros(
-        n_experts, device=device, dtype=torch.int32
-    )
-    for i in range(n_experts):
-        token_for_experts[i] = (topk_indices == i).sum().item()
-
-    return topk_weights, topk_indices, token_for_experts
-
     
-# TODO: test more cases
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float16])
 @pytest.mark.parametrize("n_token", [2, 32, 4096])
 @pytest.mark.parametrize("n_expert", [8, 32])
@@ -57,8 +38,6 @@ def ref_topk_softmax(gating_logits, n_topk):
 @pytest.mark.parametrize("renormalize", [False, True])
 def test_topk_softmax(dtype, n_token, n_topk, n_expert, renormalize):
     torch.manual_seed(1024)
-    
-    # gating_logits = torch.randn(n_token, n_expert, device=device, dtype=dtype)
     
     # expand gating_output by M, otherwise bfloat16 fall into same value aftering truncating
     hidden_states = torch.randn(n_token, 100, device=device, dtype=dtype)
