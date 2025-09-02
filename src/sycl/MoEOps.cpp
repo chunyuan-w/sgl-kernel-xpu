@@ -247,21 +247,6 @@ void launch_fused_topk_softmax(
 
   sycl_kernel_submit(global_range, local_range, queue, task);
   return;
-
-//   auto cgf = DPCPP_Q_CGF(cgh) {
-//     Kernel task(
-//         topk_weights,
-//         topk_indices,
-//         rows_for_experts,
-//         offsets,
-//         gating_output,
-//         renormalize,
-//         num_tokens,
-//         num_experts,
-//         top_k);
-//     cgh.parallel_for(range, task);
-//   };
-//   DPCPP_Q_SUBMIT(queue, cgf);
 }
 
 template <typename T>
@@ -322,10 +307,7 @@ void topk_softmax(
 
   int n_experts_aligned = (n_experts + 7) / 8 * 8; // align to 8
 
-  // TODO: do we still need to compute rows_for_experts and offsets in the kernel?
   int64_t n_topk = topk_weights.size(1);
-
-  // TODO: check the shape of input tensors are correct
 
   auto rows_for_experts =
       at::zeros({n_experts_aligned}, at::dtype(at::kInt).device(at::kXPU));
